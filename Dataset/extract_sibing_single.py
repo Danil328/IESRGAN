@@ -15,7 +15,7 @@ import config
 def main(input_folder, save_folder):
     """A multi-thread tool to crop sub imags."""
     n_thread = 8
-    crop_sz = 128 * config.UPSCALE_FACTOR
+    crop_sz = 112 * config.UPSCALE_FACTOR
     step = 240
     thres_sz = 48
     compression_level = 3  # 3 is the default value in cv2

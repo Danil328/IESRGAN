@@ -16,7 +16,9 @@ class DatasetFromFolder(data.Dataset):
         else:
             self.hr_images = glob.glob(config.PATH_TO_VALID_HR_DATA + '/*.png')
             self.lr_images = glob.glob(config.PATH_TO_VALID_LR_DATA + '/*.png')
+
         assert len(self.hr_images) == len(self.lr_images), 'Count HR images must be equal count LR images!'
+        assert list(map(lambda x: x.split('/')[-1], self.hr_images)) == list(map(lambda x: x.split('/')[-1], self.hr_images)), 'List HR images must be equal List LR images!'
 
     def __getitem__(self, index):
         hr_image = ToTensor()(Image.open(self.hr_images[index]))

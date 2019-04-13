@@ -14,7 +14,7 @@ from tqdm import tqdm, trange
 
 import config
 from Dataset.LRHR_Dataset import DatasetFromFolder
-from Models.architecture import RRDBNet, VGGFeatureExtractor, Discriminator_VGG_512
+from Models.architecture import *
 from Models.loss import GANLoss
 from Models.networks import init_weights
 from utils.data_utils import display_transform
@@ -27,43 +27,20 @@ if __name__ == '__main__':
 	train_set = DatasetFromFolder(mode = 'train')
 	valid_set = DatasetFromFolder(mode = 'valid')
 	train_loader = DataLoader(dataset = train_set, num_workers = 4, batch_size = config.BATCH_SIZE, shuffle = True,
-						  pin_memory = False, drop_last = True)
+							  pin_memory = False, drop_last = True)
 	val_loader = DataLoader(dataset = valid_set, num_workers = 2, batch_size = 1, shuffle = False, drop_last = True)
 
-	if os.path.exists('./output/Statistics/logs'):
+	try:
 		shutil.rmtree('./output/Statistics/logs')
+	except Exception:
+		pass
 	os.mkdir('./output/Statistics/logs')
 	writer = SummaryWriter(log_dir = './output/Statistics/logs')
 
-	netG = RRDBNet(in_nc = 3, out_nc = 3, nf = 32, nb = 16, gc = 32, upscale = config.UPSCALE_FACTOR)
+	netG = RRDBNet(in_nc = 3, out_nc = 3, nf = 16, nb = 16, gc = 32, upscale = config.UPSCALE_FACTOR)
 	print('# generator parameters:', sum(param.numel() for param in netG.parameters()))
-	netD = Discriminator_VGG_512(in_nc = 3, base_nf = 32)
+	netD = Discriminator_VGG_224(in_nc = 3, base_nf = 16)
 	print('# discriminator parameters:', sum(param.numel() for param in netD.parameters()))
-
-	if config.WARM_START:
-		pass
-	else:
-		init_weights(netG, init_type = 'kaiming', scale = 0.1)
-		init_weights(netD, init_type = 'kaiming', scale = 1)
-
-	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-	netG.to(device)
-	netD.to(device)
-
-	# G pixel loss
-	cri_pix = nn.L1Loss().to(device)
-	l_pix_w = 1e-2
-	# G feature loss
-	cri_fea = nn.L1Loss().to(device)
-	l_fea_w = 1
-	# load VGG perceptual loss
-	netF = VGGFeatureExtractor(feature_layer = 34, use_bn = False, use_input_norm = True, device = device)
-	print('# perceptual parameters:', sum(param.numel() for param in netF.parameters()))
-	netF.to(device)
-	# GD gan loss
-	cri_gan = GANLoss("vanilla", 1.0, 0.0).to(device)
-	l_gan_w = 5e-3
 
 	# optimizers
 	optimizers = list()
@@ -76,6 +53,33 @@ if __name__ == '__main__':
 	optimizers.append(optimizer_G)
 	optimizer_D = torch.optim.Adam(netD.parameters(), lr = config.lr_d, weight_decay = 0, betas = (0.9, 0.999))
 	optimizers.append(optimizer_D)
+
+	if config.WARM_START:
+		checkpointD = torch.load(f"output/models/netD_epoch={10}")
+		netD.load_state_dict(checkpointD['model_state_dict'])
+		optimizer_D.load_state_dict(checkpointD['optimizer_state_dict'])
+
+		checkpointG = torch.load(f"output/models/netG_epoch={10}")
+		netG.load_state_dict(checkpointG['model_state_dict'])
+		optimizer_G.load_state_dict(checkpointG['optimizer_state_dict'])
+	else:
+		init_weights(netG, init_type = 'kaiming', scale = 0.1)
+		init_weights(netD, init_type = 'kaiming', scale = 1)
+
+	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	netG.to(device)
+	netD.to(device)
+
+	# G pixel loss
+	cri_pix = nn.L1Loss().to(device)
+	# G feature loss
+	cri_fea = nn.L1Loss().to(device)
+	# load VGG perceptual loss
+	netF = VGGFeatureExtractor(feature_layer = 34, use_bn = False)
+	print('# perceptual parameters:', sum(param.numel() for param in netF.parameters()))
+	netF.to(device)
+	# GD gan loss
+	cri_gan = GANLoss("vanilla", 1.0, 0.0).to(device)
 
 	# schedulers
 	schedulers = list()
@@ -105,8 +109,8 @@ if __name__ == '__main__':
 
 				optimizer_D.zero_grad()
 
-				lr = torch.autograd.Variable(lr, requires_grad=True).to(device)
-				hr = torch.autograd.Variable(hr, requires_grad=True).to(device)
+				lr = torch.autograd.Variable(lr, requires_grad = True).to(device)
+				hr = torch.autograd.Variable(hr, requires_grad = True).to(device)
 
 				sr = netG(lr)
 
@@ -129,19 +133,19 @@ if __name__ == '__main__':
 
 					l_g_total = 0
 					# pixel loss
-					l_g_pix = l_pix_w * cri_pix(sr, hr)
+					l_g_pix = config.l_pix_w * cri_pix(sr, hr)
 					l_g_total += l_g_pix
 					# feature loss
 					real_fea = netF(hr).detach()
 					fake_fea = netF(sr)
-					l_g_fea = l_fea_w * cri_fea(fake_fea, real_fea)
+					l_g_fea = config.l_fea_w * cri_fea(fake_fea, real_fea)
 					l_g_total += l_g_fea
 					# G gan + cls loss
 					pred_g_fake = netD(sr)
 					pred_d_real = netD(hr).detach()
 
-					l_g_gan = l_gan_w * (cri_gan(pred_d_real - torch.mean(pred_g_fake), False) +
-											cri_gan(pred_g_fake - torch.mean(pred_d_real), True)) / 2
+					l_g_gan = config.l_gan_w * (cri_gan(pred_d_real - torch.mean(pred_g_fake), False) +
+												cri_gan(pred_g_fake - torch.mean(pred_d_real), True)) / 2
 					l_g_total += l_g_gan
 
 					l_g_total.backward()
@@ -164,9 +168,8 @@ if __name__ == '__main__':
 				writer.add_scalar(tag = "D_real", scalar_value = log_dict['D_real'], global_step = global_step)
 				writer.add_scalar(tag = "D_fake", scalar_value = log_dict['D_fake'], global_step = global_step)
 
-
 				# validation
-				if global_step % config.val_freq == config.val_freq-1:
+				if global_step % config.val_freq == config.val_freq - 1:
 					netG.eval()
 					out_path = 'output/training_results/SRF_' + str(config.UPSCALE_FACTOR) + '/'
 					if not os.path.exists(out_path):
@@ -185,9 +188,9 @@ if __name__ == '__main__':
 
 						if val_step < 5:
 							val_images.extend(
-								[display_transform()(nn.functional.interpolate(lr[0].cpu(), scale_factor=4)),
-								display_transform()(hr.data.cpu().squeeze(0)),
-								display_transform()(sr.data.cpu().squeeze(0))])
+								[display_transform()(nn.functional.interpolate(lr[0].cpu(), scale_factor = config.UPSCALE_FACTOR)),
+								 display_transform()(hr.data.cpu().squeeze(0)),
+								 display_transform()(sr.data.cpu().squeeze(0))])
 						if val_step > 1000:
 							break
 
@@ -211,16 +214,20 @@ if __name__ == '__main__':
 					logger.info('Saving models and training states.')
 					torch.save({'epoch': epoch,
 								'model_state_dict': netG.state_dict(),
-								'optimizer_state_dict': optimizer_G.state_dict()}, f'output/models/netG_epoch={global_step}')
+								'optimizer_state_dict': optimizer_G.state_dict()},
+							   f'output/models/netG_step={global_step}')
 					torch.save({'epoch': epoch,
 								'model_state_dict': netD.state_dict(),
-								'optimizer_state_dict': optimizer_D.state_dict()}, f'output/models/netD_epoch={global_step}')
+								'optimizer_state_dict': optimizer_D.state_dict()},
+							   f'output/models/netD_step={global_step}')
 
-		logger.info('Saving the final model.')
-		torch.save({'epoch': epoch,
-					'model_state_dict': netG.state_dict(),
-					'optimizer_state_dict': optimizer_G.state_dict()}, f'output/models/netG_epoch={epoch}')
-		torch.save({'epoch': epoch,
-					'model_state_dict': netD.state_dict(),
-					'optimizer_state_dict': optimizer_D.state_dict()}, f'output/models/netD_epoch={epoch}')
-		logger.info('End of training.')
+			logger.info('Saving the final model.')
+			torch.save({'epoch': epoch,
+						'model_state_dict': netG.state_dict(),
+						'optimizer_state_dict': optimizer_G.state_dict()},
+					    f'output/models/netG_epoch={epoch}')
+			torch.save({'epoch': epoch,
+						'model_state_dict': netD.state_dict(),
+						'optimizer_state_dict': optimizer_D.state_dict()},
+					    f'output/models/netD_epoch={epoch}')
+			logger.info('End of training.')
