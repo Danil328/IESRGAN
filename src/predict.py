@@ -4,7 +4,7 @@ from tqdm import tqdm
 from PIL import Image
 import config
 from Dataset.LRHR_Dataset import DatasetFromFolder
-from Models.architecture import *
+from models.architecture import *
 from utils.pytorch_ssim import ssim
 from torchvision.transforms import ToTensor
 

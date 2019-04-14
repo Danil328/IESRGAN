@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 import config
 from Dataset.LRHR_Dataset import DatasetFromFolder
-from Models.architecture import *
+from models.architecture import *
 from utils.pytorch_ssim import ssim
 
 if __name__ == '__main__':

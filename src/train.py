@@ -14,9 +14,9 @@ from tqdm import tqdm, trange
 
 import config
 from Dataset.LRHR_Dataset import DatasetFromFolder
-from Models.architecture import *
-from Models.loss import GANLoss
-from Models.networks import init_weights
+from models.architecture import *
+from models.loss import GANLoss
+from models.networks import init_weights
 from utils.data_utils import display_transform
 from utils.pytorch_ssim import ssim
 
@@ -55,16 +55,19 @@ if __name__ == '__main__':
 
 
 	if config.WARM_START:
-		checkpointD = torch.load(f"output/models/netD_epoch={config.N_EPOCHS_START}")
+		checkpointD = torch.load(f"output/models/netD_epoch={config.N_EPOCHS_START-1}")
 		netD.load_state_dict(checkpointD['model_state_dict'])
 		optimizer_D.load_state_dict(checkpointD['optimizer_state_dict'])
 
-		checkpointG = torch.load(f"output/models/netG_epoch={config.N_EPOCHS_START}")
+		checkpointG = torch.load(f"output/models/netG_epoch={config.N_EPOCHS_START-1}")
 		netG.load_state_dict(checkpointG['model_state_dict'])
 		optimizer_G.load_state_dict(checkpointG['optimizer_state_dict'])
+
+		global_step = config.N_EPOCHS_START * train_loader.__len__()
 	else:
 		init_weights(netG, init_type = 'kaiming', scale = 0.1)
 		init_weights(netD, init_type = 'kaiming', scale = 1)
+		global_step = 0
 
 	optimizers.append(optimizer_G)
 	optimizers.append(optimizer_D)
@@ -89,7 +92,6 @@ if __name__ == '__main__':
 	if config.MODE == 'train':
 		netD.train()
 		netG.train()
-		global_step = 0
 		for epoch in trange(config.N_EPOCHS_START, config.N_EPOCHS_END):
 			train_bar = tqdm(train_loader)
 			train_bar.set_description_str(desc = f"N epochs - {epoch}")
@@ -186,10 +188,10 @@ if __name__ == '__main__':
 
 						if val_step < 5:
 							val_images.extend(
-								[display_transform()(nn.functional.interpolate(lr[0].cpu(), scale_factor = config.UPSCALE_FACTOR)),
+								[display_transform()(lr[0].cpu()),
 								 display_transform()(hr.data.cpu().squeeze(0)),
 								 display_transform()(sr.data.cpu().squeeze(0))])
-						if val_step > 1000:
+						if val_step > 5:
 							break
 
 					valing_results['mse'] = valing_results['mse'] / val_loader.__len__()
