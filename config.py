@@ -10,11 +10,12 @@ MODE = 'train'
 
 
 # TRAINING PARAMETERS
-N_EPOCHS = 10
+N_EPOCHS_START = 5
+N_EPOCHS_END = 10
 BATCH_SIZE = 3
 lr_g = 1e-4
 lr_d = 1e-4
-WARM_START = False
+WARM_START = True
 
 N_BATCH_UPDATE = 10
 D_update_ratio = 2
@@ -28,4 +29,4 @@ l_pix_w = 1e-2
 # G feature loss
 l_fea_w = 1
 # GD gan loss
-l_gan_w = 5e-3
+l_gan_w = 5e-2

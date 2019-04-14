@@ -23,6 +23,7 @@ from utils.pytorch_ssim import ssim
 logger = logging.getLogger('base')
 
 if __name__ == '__main__':
+	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	train_set = DatasetFromFolder(mode = 'train')
 	valid_set = DatasetFromFolder(mode = 'valid')
@@ -37,9 +38,9 @@ if __name__ == '__main__':
 	os.mkdir('./output/Statistics/logs')
 	writer = SummaryWriter(log_dir = './output/Statistics/logs')
 
-	netG = RRDBNet(in_nc = 3, out_nc = 3, nf = 16, nb = 16, gc = 32, upscale = config.UPSCALE_FACTOR)
+	netG = RRDBNet(in_nc = 3, out_nc = 3, nf = 16, nb = 16, gc = 32, upscale = config.UPSCALE_FACTOR).to(device)
 	print('# generator parameters:', sum(param.numel() for param in netG.parameters()))
-	netD = Discriminator_VGG_224(in_nc = 3, base_nf = 16)
+	netD = Discriminator_VGG_224(in_nc = 3, base_nf = 16).to(device)
 	print('# discriminator parameters:', sum(param.numel() for param in netD.parameters()))
 
 	# optimizers
@@ -50,34 +51,31 @@ if __name__ == '__main__':
 			optim_params.append(v)
 
 	optimizer_G = torch.optim.Adam(optim_params, lr = config.lr_g, weight_decay = 0, betas = (0.9, 0.999))
-	optimizers.append(optimizer_G)
 	optimizer_D = torch.optim.Adam(netD.parameters(), lr = config.lr_d, weight_decay = 0, betas = (0.9, 0.999))
-	optimizers.append(optimizer_D)
+
 
 	if config.WARM_START:
-		checkpointD = torch.load(f"output/models/netD_epoch={10}")
+		checkpointD = torch.load(f"output/models/netD_epoch={config.N_EPOCHS_START}")
 		netD.load_state_dict(checkpointD['model_state_dict'])
 		optimizer_D.load_state_dict(checkpointD['optimizer_state_dict'])
 
-		checkpointG = torch.load(f"output/models/netG_epoch={10}")
+		checkpointG = torch.load(f"output/models/netG_epoch={config.N_EPOCHS_START}")
 		netG.load_state_dict(checkpointG['model_state_dict'])
 		optimizer_G.load_state_dict(checkpointG['optimizer_state_dict'])
 	else:
 		init_weights(netG, init_type = 'kaiming', scale = 0.1)
 		init_weights(netD, init_type = 'kaiming', scale = 1)
 
-	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-	netG.to(device)
-	netD.to(device)
+	optimizers.append(optimizer_G)
+	optimizers.append(optimizer_D)
 
 	# G pixel loss
 	cri_pix = nn.L1Loss().to(device)
 	# G feature loss
 	cri_fea = nn.L1Loss().to(device)
 	# load VGG perceptual loss
-	netF = VGGFeatureExtractor(feature_layer = 34, use_bn = False)
+	netF = VGGFeatureExtractor(feature_layer = 34, use_bn = False).to(device)
 	print('# perceptual parameters:', sum(param.numel() for param in netF.parameters()))
-	netF.to(device)
 	# GD gan loss
 	cri_gan = GANLoss("vanilla", 1.0, 0.0).to(device)
 
@@ -92,7 +90,7 @@ if __name__ == '__main__':
 		netD.train()
 		netG.train()
 		global_step = 0
-		for epoch in trange(config.N_EPOCHS):
+		for epoch in trange(config.N_EPOCHS_START, config.N_EPOCHS_END):
 			train_bar = tqdm(train_loader)
 			train_bar.set_description_str(desc = f"N epochs - {epoch}")
 
