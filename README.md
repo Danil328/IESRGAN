@@ -2,6 +2,9 @@
 Improved ESRGAN
 
 1. Fill the config
+```
+config.json
+```
 
 2. Prepare data
 ```
