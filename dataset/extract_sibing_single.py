@@ -2,20 +2,25 @@ import os
 import os.path
 import sys
 from multiprocessing import Pool
-import numpy as np
-import cv2
+
 import click
+import cv2
+import numpy as np
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.progress_bar import ProgressBar
-import config
+import json
+
 
 @click.command()
 @click.option('--input_folder', default='/media/danil/Data/Datasets/DIV2K/DIV2K_train_HR', help='path to data')
 @click.option('--save_folder', default='/media/danil/Data/Experiments/ESRGAN/data/DIV2K_train_HR_sub', help='path to save data')
 def main(input_folder, save_folder):
+    with open('../config.json', 'r') as f:
+        config = json.load(f)
     """A multi-thread tool to crop sub imags."""
     n_thread = 8
-    crop_sz = 112 * config.UPSCALE_FACTOR
+    crop_sz = config['crop_size'] * config['upscale_factor']
     step = 240
     thres_sz = 48
     compression_level = 3  # 3 is the default value in cv2
@@ -77,9 +82,6 @@ def worker(path, save_folder, crop_sz, step, thres_sz, compression_level):
             else:
                 crop_img = img[x:x + crop_sz, y:y + crop_sz, :]
             crop_img = np.ascontiguousarray(crop_img)
-            # var = np.var(crop_img / 255)
-            # if var > 0.008:
-            #     print(img_name, index_str, var)
             cv2.imwrite(
                 os.path.join(save_folder, img_name.replace('.png', '_s{:03d}.png'.format(index))),
                 crop_img, [cv2.IMWRITE_PNG_COMPRESSION, compression_level])

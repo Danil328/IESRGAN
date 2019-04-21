@@ -31,8 +31,8 @@ if __name__ == '__main__':
 
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	train_set = DatasetFromFolder(mode = 'train')
-	valid_set = DatasetFromFolder(mode = 'valid')
+	train_set = DatasetFromFolder(mode = 'train', config=default_config)
+	valid_set = DatasetFromFolder(mode = 'valid', config=default_config)
 	train_loader = DataLoader(dataset = train_set, num_workers = 4, batch_size = config['batch_size'], shuffle = True,
 							  pin_memory = False, drop_last = True)
 	val_loader = DataLoader(dataset = valid_set, num_workers = 2, batch_size = 1, shuffle = False, drop_last = True)

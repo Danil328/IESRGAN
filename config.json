@@ -1,6 +1,7 @@
 {
     "DEFAULT": {
     "upscale_factor": 2,
+    "crop_size": 112,
     "PATH_TO_TRAIN_LR_DATA": "/media/danil/Data/Experiments/ESRGAN/data/Flickr2K_train_HR_sub_bicLRx2",
     "PATH_TO_TRAIN_HR_DATA": "/media/danil/Data/Experiments/ESRGAN/data/Flickr2K_train_HR_sub",
     "PATH_TO_VALID_LR_DATA": "/media/danil/Data/Experiments/ESRGAN/data/Flickr2K_valid_HR_sub_bicLRx2",
