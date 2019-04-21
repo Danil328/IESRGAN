@@ -6,7 +6,7 @@ import cv2
 import click
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Dataset.util import imresize_np
+from dataset.util import imresize_np
 from utils.progress_bar import ProgressBar
 import config
 

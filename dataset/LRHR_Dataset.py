@@ -31,6 +31,7 @@ class DatasetFromFolder(data.Dataset):
     def transform(image, mask):
         # Random horizontal flipping
         if random.random() > 0.5:
+
             image = TF.hflip(image)
             mask = TF.hflip(mask)
 

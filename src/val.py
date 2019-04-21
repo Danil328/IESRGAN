@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import config
-from Dataset.LRHR_Dataset import DatasetFromFolder
+from dataset.LRHR_Dataset import DatasetFromFolder
 from models.architecture import *
 from utils.pytorch_ssim import ssim
 
