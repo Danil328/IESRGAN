@@ -41,5 +41,10 @@
   "EVALUATE": {
     "SERVICE": "travis-ci",
     "HOOK_URL": "web-hooking-url-from-ci-service"
+  },
+
+    "PREDICT": {
+    "path_to_model": "../output/models/netG_epoch=10",
+    "path_to_image": ""
   }
 }
