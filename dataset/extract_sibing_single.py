@@ -14,10 +14,9 @@ import json
 
 @click.command()
 @click.option('--input_folder', default='/media/danil/Data/Datasets/DIV2K/DIV2K_train_HR', help='path to data')
-@click.option('--save_folder', default='/media/danil/Data/Experiments/ESRGAN/data/DIV2K_train_HR_sub', help='path to save data')
+@click.option('--save_folder', default='/media/danil/Data/Experiments/ESRGAN/data/DIV2K_train_HR_sub_x', help='path to save data')
 def main(input_folder, save_folder):
-    with open('../config.json', 'r') as f:
-        config = json.load(f)
+    save_folder += str(config["upscale_factor"])
     """A multi-thread tool to crop sub imags."""
     n_thread = 8
     crop_sz = config['crop_size'] * config['upscale_factor']
@@ -89,4 +88,7 @@ def worker(path, save_folder, crop_sz, step, thres_sz, compression_level):
 
 
 if __name__ == '__main__':
+    with open('config.json', 'r') as f:
+        config = json.load(f)
+        config = config['DEFAULT']
     main()

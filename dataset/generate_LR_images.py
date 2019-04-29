@@ -13,15 +13,17 @@ import json
 
 
 @click.command()
-@click.option('--input_folder', default='/media/danil/Data/Experiments/ESRGAN/data/DIV2K_train_HR_sub', help='path to data')
+@click.option('--input_folder', default='/media/danil/Data/Experiments/ESRGAN/data/DIV2K_train_HR_sub_x', help='path to data')
 @click.option('--save_folder', default='/media/danil/Data/Experiments/ESRGAN/data/DIV2K_train_HR_sub_bicLRx', help='path to save data')
 def main(input_folder, save_folder):
+	input_folder += str(config["upscale_factor"])
+	save_folder += str(config['upscale_factor'])
 	"""A multi-thread tool to crop sub imags."""
 	n_thread = 8
 	compression_level = 0  # 3 is the default value in cv2
 	# CV_IMWRITE_PNG_COMPRESSION from 0 to 9. A higher value means a smaller size and longer
 	# compression time. If read raw images during training, use 0 for faster IO speed.
-	save_folder += str(config['upscale_factor'])
+
 	if not os.path.exists(save_folder):
 		os.makedirs(save_folder)
 		print('mkdir [{:s}] ...'.format(save_folder))
@@ -61,6 +63,7 @@ def worker(path, save_folder, compression_level):
 
 
 if __name__ == '__main__':
-	with open('../config.json', 'r') as f:
+	with open('config.json', 'r') as f:
 		config = json.load(f)
+		config = config['DEFAULT']
 	main()

@@ -23,7 +23,7 @@ logger = logging.getLogger('base')
 
 if __name__ == '__main__':
 
-	with open('config.json', 'r') as f:
+	with open('../config.json', 'r') as f:
 		config = json.load(f)
 
 	default_config = config['DEFAULT']
@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
 	netG = RRDBNet(in_nc = 3, out_nc = 3, nf = 16, nb = 16, gc = 32, upscale = default_config['upscale_factor']).to(device)
 	print('# generator parameters:', sum(param.numel() for param in netG.parameters()))
-	netD = Discriminator_VGG_224(in_nc = 3, base_nf = 16).to(device)
+	netD = Discriminator_VGG_224(in_nc = 3, base_nf = 16).to(device) if config['scale'] == 'x2' else Discriminator_VGG_448(in_nc = 3, base_nf = 16).to(device)
 	print('# discriminator parameters:', sum(param.numel() for param in netD.parameters()))
 
 	# optimizers
@@ -59,7 +59,7 @@ if __name__ == '__main__':
 	optimizer_G = torch.optim.Adam(optim_params, lr = config['learning_rate_G'], weight_decay = 0, betas = (0.9, 0.999))
 	optimizer_D = torch.optim.Adam(netD.parameters(), lr = config['learning_rate_D'], weight_decay = 0, betas = (0.9, 0.999))
 
-	if config['warm_start'] == 'True':
+	if config['warm_start'] == 'True' and config['scale'] != "x4":
 		checkpointD = torch.load(f"../output/models/netD_epoch={config['n_epoch_start']-1}")
 		netD.load_state_dict(checkpointD['model_state_dict'])
 		optimizer_D.load_state_dict(checkpointD['optimizer_state_dict'])
@@ -68,7 +68,17 @@ if __name__ == '__main__':
 		netG.load_state_dict(checkpointG['model_state_dict'])
 		optimizer_G.load_state_dict(checkpointG['optimizer_state_dict'])
 
-		global_step = config.N_EPOCHS_START * train_loader.__len__()
+		global_step = config['n_epoch_start'] * train_loader.__len__()
+	elif config['warm_start'] == 'True' and config['scale'] == "x4":
+		checkpointD = torch.load(f"../output/models/netD_{config['scale']}_epoch={config['n_epoch_start']-1}")
+		netD.load_state_dict(checkpointD['model_state_dict'], strict=False)
+		optimizer_D.load_state_dict(checkpointD['optimizer_state_dict'])
+
+		checkpointG = torch.load(f"../output/models/netG_{config['scale']}_epoch={config['n_epoch_start']-1}")
+		netG.load_state_dict(checkpointG['model_state_dict'], strict=False)
+		optimizer_G.load_state_dict(checkpointG['optimizer_state_dict'])
+
+		global_step = config['n_epoch_start'] * train_loader.__len__()
 	else:
 		checkpointG = torch.load(f"../output/PSNR_model/netG_epoch=0")
 		netG.load_state_dict(checkpointG['model_state_dict'])
@@ -176,7 +186,7 @@ if __name__ == '__main__':
 			# validation
 			if global_step % config['val_freq'] == config['val_freq'] - 1:
 				netG.eval()
-				out_path = 'output/training_results/SRF_' + str(default_config['upscale_factor']) + '/'
+				out_path = '../output/training_results/SRF_' + str(default_config['upscale_factor']) + '/'
 				if not os.path.exists(out_path):
 					os.makedirs(out_path)
 
@@ -219,19 +229,19 @@ if __name__ == '__main__':
 				torch.save({'epoch': epoch,
 							'model_state_dict': netG.state_dict(),
 							'optimizer_state_dict': optimizer_G.state_dict()},
-						   f'../output/models/netG_step={global_step}')
+						   f'../output/models/netG_{config["scale"]}_step={global_step}')
 				torch.save({'epoch': epoch,
 							'model_state_dict': netD.state_dict(),
 							'optimizer_state_dict': optimizer_D.state_dict()},
-						   f'../output/models/netD_step={global_step}')
+						   f'../output/models/netD_{config["scale"]}_step={global_step}')
 
 		logger.info('Saving the final model.')
 		torch.save({'epoch': epoch,
 					'model_state_dict': netG.state_dict(),
 					'optimizer_state_dict': optimizer_G.state_dict()},
-					f'../output/models/netG_epoch={epoch}')
+					f'../output/models/netG_{config["scale"]}_epoch={epoch}')
 		torch.save({'epoch': epoch,
 					'model_state_dict': netD.state_dict(),
 					'optimizer_state_dict': optimizer_D.state_dict()},
-					f'../output/models/netD_epoch={epoch}')
+					f'../output/models/netD_{config["scale"]}_epoch={epoch}')
 		logger.info('End of training.')
