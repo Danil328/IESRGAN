@@ -46,7 +46,7 @@
 
     "PREDICT": {
     "path_to_model": "../output/models/netG_x4_epoch=25",
-    "path_to_image": "/media/danil/Data/Datasets/Flickr2K/val/002141.png",
-    "path_to_save_image": "..images/002141.png"
+    "path_to_image_folder": "../images/*.png",
+    "path_to_save_images": "../sr_images/"
   }
 }
