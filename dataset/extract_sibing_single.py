@@ -1,6 +1,8 @@
+import functools
 import os
 import os.path
 import sys
+import time
 from multiprocessing import Pool
 
 import click
@@ -18,8 +20,8 @@ import json
 def main(input_folder, save_folder):
     save_folder += str(config["upscale_factor"])
     """A multi-thread tool to crop sub imags."""
-    n_thread = 8
-    crop_sz = config['crop_size'] * config['upscale_factor']
+    n_thread = 20
+    crop_sz = config['crop_size']
     step = 240
     thres_sz = 48
     compression_level = 3  # 3 is the default value in cv2
@@ -31,7 +33,7 @@ def main(input_folder, save_folder):
         print('mkdir [{:s}] ...'.format(save_folder))
     else:
         print('Folder [{:s}] already exists. Exit...'.format(save_folder))
-        sys.exit(1)
+        #sys.exit(1)
 
     img_list = []
     for root, _, file_list in sorted(os.walk(input_folder)):
@@ -42,12 +44,16 @@ def main(input_folder, save_folder):
         pbar.update(arg)
 
     pbar = ProgressBar(len(img_list))
-
+    worker_m = functools.partial(worker, save_folder=save_folder, crop_sz=crop_sz, step=step, thres_sz=thres_sz, compression_level=compression_level)
     pool = Pool(n_thread)
     for path in img_list:
+        # worker_m(path)
+        # update(1)
         pool.apply_async(worker,
             args=(path, save_folder, crop_sz, step, thres_sz, compression_level),
             callback=update)
+    # r = pool.map_async(worker_m, (i for i in img_list), callback=update)
+    # r.wait()
     pool.close()
     pool.join()
     print('All subprocesses done.')
@@ -56,7 +62,6 @@ def main(input_folder, save_folder):
 def worker(path, save_folder, crop_sz, step, thres_sz, compression_level):
     img_name = os.path.basename(path)
     img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-
     n_channels = len(img.shape)
     if n_channels == 2:
         h, w = img.shape
@@ -88,7 +93,7 @@ def worker(path, save_folder, crop_sz, step, thres_sz, compression_level):
 
 
 if __name__ == '__main__':
-    with open('config.json', 'r') as f:
+    with open('../config.json', 'r') as f:
         config = json.load(f)
         config = config['DEFAULT']
     main()

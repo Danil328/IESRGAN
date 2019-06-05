@@ -19,7 +19,7 @@ def main(input_folder, save_folder):
 	input_folder += str(config["upscale_factor"])
 	save_folder += str(config['upscale_factor'])
 	"""A multi-thread tool to crop sub imags."""
-	n_thread = 8
+	n_thread = 20
 	compression_level = 0  # 3 is the default value in cv2
 	# CV_IMWRITE_PNG_COMPRESSION from 0 to 9. A higher value means a smaller size and longer
 	# compression time. If read raw images during training, use 0 for faster IO speed.
@@ -63,7 +63,7 @@ def worker(path, save_folder, compression_level):
 
 
 if __name__ == '__main__':
-	with open('config.json', 'r') as f:
+	with open('../config.json', 'r') as f:
 		config = json.load(f)
 		config = config['DEFAULT']
 	main()
