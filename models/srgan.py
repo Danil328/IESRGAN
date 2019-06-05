@@ -36,7 +36,7 @@ class Generator(nn.Module):
         block7 = self.block7(block6)
         block8 = self.block8(block1 + block7)
 
-        return (F.tanh(block8) + 1) / 2
+        return block8
 
 
 class Discriminator(nn.Module):
