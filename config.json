@@ -2,8 +2,8 @@
     "DEFAULT": {
     "upscale_factor": 4,
     "crop_size": 448,
-    "PATH_TO_TRAIN_LR_DATA": "../data/train_HR4",
-    "PATH_TO_TRAIN_HR_DATA": "../data/train_LRx4",
+    "PATH_TO_TRAIN_LR_DATA": "../data/train_LRx4",
+    "PATH_TO_TRAIN_HR_DATA": "../data/train_HR4",
     "PATH_TO_VALID_LR_DATA": "../data/valid_LRx4",
     "PATH_TO_VALID_HR_DATA": "../data/valid_HR4"
   },
@@ -27,7 +27,7 @@
     "path_to_D_model": "",
     "n_epoch_start": 1,
     "n_epoch_end": 30,
-    "batch_size": 2,
+    "batch_size": 1,
     "learning_rate_G": 1e-4,
     "learning_rate_D": 1e-4,
     "D_update_ratio": 2,
@@ -38,7 +38,7 @@
     "loss_feature_weight": 1.0,
     "loss_gan_weight": 5e-3,
     "log_path": "../output/Statistics/logs_x4",
-    "ngpu": 2
+    "ngpu": 1
   },
 
     "PREDICT": {

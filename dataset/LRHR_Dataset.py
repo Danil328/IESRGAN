@@ -27,6 +27,8 @@ class DatasetFromFolder(data.Dataset):
         assert list(map(lambda x: x.split('/')[-1], self.hr_images)) == list(
             map(lambda x: x.split('/')[-1], self.hr_images)), 'List HR images must be equal List LR images!'
 
+        self.lr_images = list(map(lambda x: x.replace('HR4', 'LRx4'), self.hr_images))
+
     def __getitem__(self, index):
         hr_image = Image.open(self.hr_images[index])
         lr_image = Image.open(self.lr_images[index])
@@ -77,6 +79,12 @@ if __name__ == '__main__':
     default_config = config['DEFAULT']
 
     dataset = DatasetFromFolder(mode='train', config=default_config)
-    lr_image, hr_image = dataset.__getitem__(100)
+    lr_image, hr_image = dataset.__getitem__(3) #np.random.randint(0, 100, 1)[0]
     print(lr_image.min(), lr_image.max())
     print(hr_image.min(), hr_image.max())
+    lr_image = np.moveaxis(lr_image.numpy(), 0, -1)
+    upscale_lr = (cv2.resize(lr_image, dsize=(default_config['crop_size'], default_config['crop_size']))*255).astype(int)
+    hr_image = (np.moveaxis(hr_image.numpy(), 0, -1)*255).astype(int)
+
+    cv2.imwrite("lr_image.png", upscale_lr)
+    cv2.imwrite("hr_image.png", hr_image)
