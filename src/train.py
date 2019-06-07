@@ -31,14 +31,16 @@ if __name__ == '__main__':
     default_config = config['DEFAULT']
     config = config['TRAIN_ESRGAN']
 
-    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+    device1 = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device2 = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+    device3 = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
     # Load dataset
     train_set = DatasetFromFolder(mode='train', config=default_config)
     valid_set = DatasetFromFolder(mode='valid', config=default_config)
-    train_loader = DataLoader(dataset=train_set, num_workers=6, batch_size=config['batch_size'], shuffle=True,
+    train_loader = DataLoader(dataset=train_set, num_workers=8, batch_size=config['batch_size'], shuffle=True,
                               pin_memory=False, drop_last=True)
-    val_loader = DataLoader(dataset=valid_set, num_workers=4, batch_size=config['batch_size'], shuffle=False,
+    val_loader = DataLoader(dataset=valid_set, num_workers=4, batch_size=1, shuffle=False,
                             drop_last=False)
     # TensorBoard
     try:
@@ -53,11 +55,11 @@ if __name__ == '__main__':
 
     # Define Model
     # netG = RRDBNet(in_nc=3, out_nc=3, nf=16, nb=16, gc=32, upscale=default_config['upscale_factor']).to(device)
-    netG = SRGAN_G(default_config['upscale_factor']).to(device)
-    netD = Discriminator_VGG(in_nc=3, base_nf=16).to(device)
-    netF = VGGFeatureExtractor(feature_layer=34, use_bn=False).to(device)
+    netG = SRGAN_G(default_config['upscale_factor']).to(device1)
+    netD = Discriminator_VGG(in_nc=3, base_nf=16).to(device2)
+    netF = VGGFeatureExtractor(feature_layer=34, use_bn=False).to(device2)
     # Handle multi-gpu if desired
-    if (device.type == 'cuda') and (config['ngpu'] > 1):
+    if (device1.type == 'cuda') and (config['ngpu'] > 1):
         netG = nn.DataParallel(netG, list(range(config['ngpu'])))
         netD = nn.DataParallel(netD, list(range(config['ngpu'])))
         netF = nn.DataParallel(netF, list(range(config['ngpu'])))
@@ -95,11 +97,11 @@ if __name__ == '__main__':
     optimizers.append(optimizer_D)
 
     # G pixel loss
-    cri_pix = nn.L1Loss().to(device)
+    cri_pix = nn.L1Loss().to(device1)
     # G feature loss
-    cri_fea = nn.L1Loss().to(device)
+    cri_fea = nn.L1Loss().to(device1)
     # GD gan loss
-    cri_gan = GANLoss("vanilla", 1.0, 0.0).to(device)
+    cri_gan = GANLoss("vanilla", 1.0, 0.0).to(device1)
 
     # schedulers
     schedulers = list()
@@ -128,13 +130,13 @@ if __name__ == '__main__':
 
             optimizer_D.zero_grad()
 
-            lr = torch.autograd.Variable(lr, requires_grad=True).to(device)
-            hr = torch.autograd.Variable(hr, requires_grad=True).to(device)
+            lr = torch.autograd.Variable(lr, requires_grad=True).to(device1)
+            hr = torch.autograd.Variable(hr, requires_grad=True).to(device2)
 
-            sr = netG(lr)
+            sr = netG(lr).to(device2)
 
-            pred_d_real = netD(hr)
-            pred_d_fake = netD(sr.detach())
+            pred_d_real = netD(hr).to(device1)
+            pred_d_fake = netD(sr.detach()).to(device1)
 
             l_d_real = cri_gan(pred_d_real - torch.mean(pred_d_fake), True)
             l_d_fake = cri_gan(pred_d_fake - torch.mean(pred_d_real), False)
@@ -149,7 +151,7 @@ if __name__ == '__main__':
                 for p in netD.parameters():
                     p.requires_grad = False
                 optimizer_G.zero_grad()
-
+                print("ZBS")
                 l_g_total = 0
                 # pixel loss
                 l_g_pix = config['loss_pix_weight'] * cri_pix(sr, hr)
@@ -197,14 +199,14 @@ if __name__ == '__main__':
                 valing_results = {'mse': 0, 'ssims': 0, 'psnr': 0, 'ssim': 0}
                 val_images = []
                 for val_step, (lr, hr) in enumerate(val_bar):
-                    lr = lr.to(device)
-                    hr = hr.to(device)
+                    lr = lr.to(device1)
+                    hr = hr.to(device2)
                     with torch.no_grad():
-                        sr = netG(lr)
+                        sr = netG(lr).to(device2)
                     valing_results['mse'] += ((sr - hr) ** 2).data.mean()
                     valing_results['ssims'] += ssim(sr, hr).data.item()
 
-                    if val_step < 5:
+                    if val_step < 20:
                         val_images.extend(
                             [display_transform()(lr[0].cpu()),
                              display_transform()(hr.data.cpu().squeeze(0)),

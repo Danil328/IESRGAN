@@ -32,8 +32,8 @@ def train_lr_transform(crop_size, upscale_factor):
 def display_transform():
     return Compose([
         ToPILImage(),
-        Resize(400),
-        CenterCrop(400),
+        Resize(448),
+        CenterCrop(448),
         ToTensor()
     ])
 

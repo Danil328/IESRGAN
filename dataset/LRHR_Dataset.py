@@ -9,6 +9,7 @@ from albumentations import (
     Blur, IAAAdditiveGaussianNoise, GaussNoise, MotionBlur, MedianBlur, OneOf, Compose
 )
 import numpy as np
+import matplotlib.pyplot as plt
 
 class DatasetFromFolder(data.Dataset):
     def __init__(self, mode, config):
@@ -27,6 +28,7 @@ class DatasetFromFolder(data.Dataset):
         assert list(map(lambda x: x.split('/')[-1], self.hr_images)) == list(
             map(lambda x: x.split('/')[-1], self.hr_images)), 'List HR images must be equal List LR images!'
 
+        random.shuffle(self.hr_images)
         self.lr_images = list(map(lambda x: x.replace('HR4', 'LRx4'), self.hr_images))
 
     def __getitem__(self, index):
@@ -79,7 +81,7 @@ if __name__ == '__main__':
     default_config = config['DEFAULT']
 
     dataset = DatasetFromFolder(mode='train', config=default_config)
-    lr_image, hr_image = dataset.__getitem__(3) #np.random.randint(0, 100, 1)[0]
+    lr_image, hr_image = dataset[np.random.randint(0, 100, 1)[0]]
     print(lr_image.min(), lr_image.max())
     print(hr_image.min(), hr_image.max())
     lr_image = np.moveaxis(lr_image.numpy(), 0, -1)
@@ -88,3 +90,7 @@ if __name__ == '__main__':
 
     cv2.imwrite("lr_image.png", upscale_lr)
     cv2.imwrite("hr_image.png", hr_image)
+
+    # plt.figure()
+    # plt.imshow(upscale_lr)
+    # plt.show()

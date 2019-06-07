@@ -20,9 +20,11 @@ class Generator(nn.Module):
         self.block6 = ResidualBlock(64)
         self.block7 = nn.Sequential(
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64)
+            nn.InstanceNorm2d(64)
         )
         block8 = [UpsampleBLock(64, 2) for _ in range(upsample_block_num)]
+        # block8.append(nn.Conv2d(64, 64, kernel_size=3, padding=1))
+        # block8.append(nn.LeakyReLU(negative_slope=0.2, inplace=True))
         block8.append(nn.Conv2d(64, 3, kernel_size=9, padding=4))
         self.block8 = nn.Sequential(*block8)
 
@@ -89,17 +91,17 @@ class ResidualBlock(nn.Module):
     def __init__(self, channels):
         super(ResidualBlock, self).__init__()
         self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
-        #self.bn1 = nn.BatchNorm2d(channels)
+        self.bn1 = nn.InstanceNorm2d(channels)
         self.prelu = nn.PReLU()
         self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
-        #self.bn2 = nn.BatchNorm2d(channels)
+        self.bn2 = nn.InstanceNorm2d(channels)
 
     def forward(self, x):
         residual = self.conv1(x)
-        #residual = self.bn1(residual)
+        residual = self.bn1(residual)
         residual = self.prelu(residual)
         residual = self.conv2(residual)
-        #residual = self.bn2(residual)
+        residual = self.bn2(residual)
 
         return x + residual
 
@@ -109,6 +111,7 @@ class UpsampleBLock(nn.Module):
         super(UpsampleBLock, self).__init__()
         self.conv = nn.Conv2d(in_channels, in_channels * up_scale ** 2, kernel_size=3, padding=1)
         self.pixel_shuffle = nn.PixelShuffle(up_scale)
+        # self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
         self.prelu = nn.PReLU()
 
     def forward(self, x):
