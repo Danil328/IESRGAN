@@ -8,8 +8,13 @@ import numpy as np
 from PIL import Image
 from torchvision.transforms import ToTensor
 from tqdm import trange, tqdm
-
+from models.srgan import Generator as SRGAN_G
+from sklearn.preprocessing import MinMaxScaler
 from models.architecture import *
+
+import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"  # specify which GPU(s) to be used
 
 if __name__ == '__main__':
     with open('../config.json', 'r') as f:
@@ -20,9 +25,11 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    netG = RRDBNet(in_nc=3, out_nc=3, nf=16, nb=16, gc=32, upscale=default_config['upscale_factor'])
+    netG = SRGAN_G(default_config['upscale_factor'])
     netG.load_state_dict(torch.load(config['path_to_model'])['model_state_dict'])
     netG.to(device).eval()
+
+    scaler = MinMaxScaler(feature_range=(0, 1))
 
     image_paths = glob.glob(config['path_to_image_folder'])
     for im_path in tqdm(image_paths):
@@ -34,16 +41,21 @@ if __name__ == '__main__':
             img_tensor = ToTensor()(img).unsqueeze(0).to(device)
             sr = netG(img_tensor)
 
+
+        sr = sr.data.squeeze().cpu().numpy()
+        print(sr.shape)
+        #sr = cv2.normalize(src=sr, dst=None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+        #sr = scaler.fit_transform(sr)
         sr[sr < 0] = 0
         sr[sr > 1] = 1
-        sr = np.moveaxis(sr.data.squeeze().cpu().numpy() * 255, 0, -1).astype(np.uint8)
+        sr = np.moveaxis(sr * 255, 0, -1).astype(np.uint8)
 
         # kernel = np.ones((5, 5), np.float32) / 25
         # sr = cv2.filter2D(sr, -1, kernel)
         #sr = cv2.blur(sr, (3, 3))
-        sr = cv2.fastNlMeansDenoisingColored(sr, None, 10, 10, 7, 21)
+        #sr = cv2.fastNlMeansDenoisingColored(sr, None, 10, 10, 5, 21)
 
-        cv2.imwrite(im_path.replace('images', 'sr_images'), sr[..., ::-1])
+        cv2.imwrite(im_path.replace('images', 'sr_images_SRGAN'), sr[..., ::-1])
 
         # scale = default_config['upscale_factor']
         # image = np.asarray(img)

@@ -25,9 +25,9 @@
 
   "TRAIN_ESRGAN": {
     "scale": "x4",
-    "path_to_G_model": "",
-    "path_to_D_model": "",
-    "n_epoch_start": 1,
+    "path_to_G_model": "../output/models/netG_x4_epoch=36.pth",
+    "path_to_D_model": "../output/models/netD_x4_epoch=36.pth",
+    "n_epoch_start": 37,
     "n_epoch_end": 100,
     "batch_size": 16,
     "learning_rate_G": 1e-4,
@@ -44,7 +44,7 @@
   },
 
     "PREDICT": {
-    "path_to_model": "../output/models/netG_x4_epoch=25",
+    "path_to_model": "../output/models/netG_x4_step=319999.pth",
     "path_to_image_folder": "../images/*.png",
     "path_to_save_images": "../sr_images/"
   }

@@ -43,11 +43,11 @@ if __name__ == '__main__':
     val_loader = DataLoader(dataset=valid_set, num_workers=4, batch_size=1, shuffle=False,
                             drop_last=False)
     # TensorBoard
-    try:
-        shutil.rmtree(config['log_path'])
-    except Exception:
-        pass
-    os.mkdir(config['log_path'])
+    # try:
+    #     shutil.rmtree(config['log_path'])
+    # except Exception:
+    #     pass
+    # os.mkdir(config['log_path'])
     writer = SummaryWriter(log_dir=config['log_path'])
 
     input_shape = int(default_config['crop_size']/default_config['upscale_factor'])
@@ -58,19 +58,12 @@ if __name__ == '__main__':
     netG = SRGAN_G(default_config['upscale_factor']).to(device1)
     netD = Discriminator_VGG(in_nc=3, base_nf=16).to(device2)
     netF = VGGFeatureExtractor(feature_layer=34, use_bn=False).to(device2)
-    # Handle multi-gpu if desired
-    if (device1.type == 'cuda') and (config['ngpu'] > 1):
-        netG = nn.DataParallel(netG, list(range(config['ngpu'])))
-        netD = nn.DataParallel(netD, list(range(config['ngpu'])))
-        netF = nn.DataParallel(netF, list(range(config['ngpu'])))
-    # summary(netG, input_size=(3, input_shape, input_shape), device="cuda")
-    # summary(netD, input_size=(3, output_shape, output_shape), device="cuda")
+
     init_weights(netG, init_type='kaiming', scale=0.1)
     init_weights(netD, init_type='kaiming', scale=1)
     print('# generator parameters:', sum(param.numel() for param in netG.parameters()))
     print('# discriminator parameters:', sum(param.numel() for param in netD.parameters()))
     print('# perceptual parameters:', sum(param.numel() for param in netF.parameters()))
-
 
     # Define optimizers
     optimizers = list()
@@ -82,11 +75,16 @@ if __name__ == '__main__':
     optimizer_G = torch.optim.Adam(optim_params, lr=config['learning_rate_G'], weight_decay=1e-6, betas=(0.9, 0.999))
     optimizer_D = torch.optim.Adam(netD.parameters(), lr=config['learning_rate_D'], weight_decay=1e-6, betas=(0.9, 0.999))
 
+
     # Warm start
     if len(config['path_to_G_model']) > 0:
         checkpointG = torch.load(config['path_to_G_model'])
         netG.load_state_dict(checkpointG['model_state_dict'])
         optimizer_G.load_state_dict(checkpointG['optimizer_state_dict'])
+
+        # torch.save({'epoch': 10,
+        #             'model_state_dict': netG.module.state_dict()},
+        #            f'../output/PSNR_model/netG_epoch={10}.pth')
 
     if len(config['path_to_D_model']) > 0:
         checkpointD = torch.load(config['path_to_D_model'])
@@ -95,6 +93,14 @@ if __name__ == '__main__':
 
     optimizers.append(optimizer_G)
     optimizers.append(optimizer_D)
+
+    # Handle multi-gpu if desired
+    if (device1.type == 'cuda') and (config['ngpu'] > 1):
+        netG = nn.DataParallel(netG, list(range(config['ngpu'])))
+        netD = nn.DataParallel(netD, list(range(config['ngpu'])))
+        netF = nn.DataParallel(netF, list(range(config['ngpu'])))
+    # summary(netG, input_size=(3, input_shape, input_shape), device="cuda")
+    # summary(netD, input_size=(3, output_shape, output_shape), device="cuda")
 
     # G pixel loss
     cri_pix = nn.L1Loss().to(device1)
@@ -106,11 +112,15 @@ if __name__ == '__main__':
     # schedulers
     schedulers = list()
     for optimizer in optimizers:
-        schedulers.append(lr_scheduler.MultiStepLR(optimizer, [50000, 100000, 200000, 300000], 0.5))
+        schedulers.append(lr_scheduler.MultiStepLR(optimizer, [50, 75, 100, 200], 0.5))
 
     log_dict = OrderedDict()
 
-    global_step = 0
+    global_step = config['n_epoch_start'] * train_loader.__len__()
+    for i in range(config['n_epoch_start']):
+        for scheduler in schedulers:
+            scheduler.step()
+
     for epoch in trange(config['n_epoch_start'], config['n_epoch_end']):
         netD.train()
         netG.train()
@@ -119,6 +129,8 @@ if __name__ == '__main__':
 
         for scheduler in schedulers:
             scheduler.step()
+        writer.add_scalar(tag="Learning Rate", scalar_value=scheduler.get_lr()[0], global_step=epoch)
+
 
         for step, (lr, hr) in enumerate(train_bar):
             global_step += 1
@@ -151,7 +163,7 @@ if __name__ == '__main__':
                 for p in netD.parameters():
                     p.requires_grad = False
                 optimizer_G.zero_grad()
-                print("ZBS")
+                # print("ZBS")
                 l_g_total = 0
                 # pixel loss
                 l_g_pix = config['loss_pix_weight'] * cri_pix(sr, hr)
@@ -234,19 +246,19 @@ if __name__ == '__main__':
                 torch.save({'epoch': epoch,
                             'model_state_dict': netG.state_dict(),
                             'optimizer_state_dict': optimizer_G.state_dict()},
-                           f'../output/models/netG_{config["scale"]}_step={global_step}')
+                           f'../output/models/netG_{config["scale"]}_step={global_step}.pth')
                 torch.save({'epoch': epoch,
                             'model_state_dict': netD.state_dict(),
                             'optimizer_state_dict': optimizer_D.state_dict()},
-                           f'../output/models/netD_{config["scale"]}_step={global_step}')
+                           f'../output/models/netD_{config["scale"]}_step={global_step}.pth')
 
         logger.info('Saving the final model.')
         torch.save({'epoch': epoch,
                     'model_state_dict': netG.state_dict(),
                     'optimizer_state_dict': optimizer_G.state_dict()},
-                   f'../output/models/netG_{config["scale"]}_epoch={epoch}')
+                   f'../output/models/netG_{config["scale"]}_epoch={epoch}.pth')
         torch.save({'epoch': epoch,
                     'model_state_dict': netD.state_dict(),
                     'optimizer_state_dict': optimizer_D.state_dict()},
-                   f'../output/models/netD_{config["scale"]}_epoch={epoch}')
+                   f'../output/models/netD_{config["scale"]}_epoch={epoch}.pth')
         logger.info('End of training.')

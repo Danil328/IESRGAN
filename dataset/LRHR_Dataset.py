@@ -6,15 +6,17 @@ import torch.utils.data as data
 import torchvision.transforms.functional as TF
 from PIL import Image
 from albumentations import (
-    Blur, IAAAdditiveGaussianNoise, GaussNoise, MotionBlur, MedianBlur, OneOf, Compose
+    Blur, IAAAdditiveGaussianNoise, GaussNoise, MotionBlur, MedianBlur, OneOf, Compose, JpegCompression
 )
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 class DatasetFromFolder(data.Dataset):
     def __init__(self, mode, config):
 
         super(DatasetFromFolder, self).__init__()
+        self.mode = mode
         if mode == 'train':
             self.hr_images = glob.glob(config['PATH_TO_TRAIN_HR_DATA'] + '/*.png')
             self.lr_images = glob.glob(config['PATH_TO_TRAIN_LR_DATA'] + '/*.png')
@@ -22,7 +24,11 @@ class DatasetFromFolder(data.Dataset):
             self.hr_images = glob.glob(config['PATH_TO_VALID_HR_DATA'] + '/*.png')
             self.lr_images = glob.glob(config['PATH_TO_VALID_LR_DATA'] + '/*.png')
 
-        self.aug = self.augment_lr_image(p=0.5)
+        if mode == 'train':
+            p = 0.5
+        else:
+            p = 0
+        self.aug = self.augment_lr_image(p=p)
 
         assert len(self.hr_images) == len(self.lr_images), 'Count HR images must be equal count LR images!'
         assert list(map(lambda x: x.split('/')[-1], self.hr_images)) == list(
@@ -37,17 +43,17 @@ class DatasetFromFolder(data.Dataset):
         lr_image, hr_image = self.transform(lr_image, hr_image)
         return lr_image, hr_image
 
-
     def transform(self, lr_image, hr_image):
         # Random horizontal flipping
-        if random.random() > 0.5:
-            lr_image = TF.hflip(lr_image)
-            hr_image = TF.hflip(hr_image)
+        if self.mode == 'train':
+            if random.random() > 0.5:
+                lr_image = TF.hflip(lr_image)
+                hr_image = TF.hflip(hr_image)
 
-        # Random vertical flipping
-        if random.random() > 0.5:
-            lr_image = TF.vflip(lr_image)
-            hr_image = TF.vflip(hr_image)
+            # Random vertical flipping
+            if random.random() > 0.5:
+                lr_image = TF.vflip(lr_image)
+                hr_image = TF.vflip(hr_image)
 
         # Apply AUG to LR image
         lr_image = self.aug(image=np.asarray(lr_image))['image']
@@ -61,14 +67,15 @@ class DatasetFromFolder(data.Dataset):
     def augment_lr_image(p=.5):
         return Compose([
             OneOf([
-                IAAAdditiveGaussianNoise(),
-                GaussNoise(),
-            ], p=0.25),
+                # IAAAdditiveGaussianNoise(),
+                # GaussNoise(),
+                JpegCompression()
+            ], p=0.5),
             OneOf([
                 MotionBlur(p=.2),
                 MedianBlur(blur_limit=3, p=0.1),
                 Blur(blur_limit=3, p=0.1),
-            ], p=0.25)
+            ], p=0.2)
         ], p=p)
 
     def __len__(self):
@@ -85,8 +92,9 @@ if __name__ == '__main__':
     print(lr_image.min(), lr_image.max())
     print(hr_image.min(), hr_image.max())
     lr_image = np.moveaxis(lr_image.numpy(), 0, -1)
-    upscale_lr = (cv2.resize(lr_image, dsize=(default_config['crop_size'], default_config['crop_size']))*255).astype(int)
-    hr_image = (np.moveaxis(hr_image.numpy(), 0, -1)*255).astype(int)
+    upscale_lr = (cv2.resize(lr_image, dsize=(default_config['crop_size'], default_config['crop_size'])) * 255).astype(
+        int)
+    hr_image = (np.moveaxis(hr_image.numpy(), 0, -1) * 255).astype(int)
 
     cv2.imwrite("lr_image.png", upscale_lr)
     cv2.imwrite("hr_image.png", hr_image)

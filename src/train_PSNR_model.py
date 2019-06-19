@@ -168,12 +168,12 @@ if __name__ == '__main__':
             if global_step % config['save_checkpoint_freq'] == config['save_checkpoint_freq'] - 1:
                 logger.info('Saving models and training states.')
                 torch.save({'epoch': epoch,
-                            'model_state_dict': netG.state_dict(),
+                            'model_state_dict': netG.module.state_dict(),
                             'optimizer_state_dict': optimizer_G.state_dict()},
                            f'{config["path_to_save_model"]}/netG_step={global_step}')
 
         logger.info('Saving the final model.')
         torch.save({'epoch': epoch,
-                    'model_state_dict': netG.state_dict(),
+                    'model_state_dict': netG.module.state_dict(),
                     'optimizer_state_dict': optimizer_G.state_dict()},
                    f'{config["path_to_save_model"]}/netG_epoch={epoch}')
