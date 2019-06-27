@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # Define Model
     # netG = RRDBNet(in_nc=3, out_nc=3, nf=16, nb=16, gc=32, upscale=default_config['upscale_factor']).to(device)
     netG = SRGAN_G(default_config['upscale_factor']).to(device)
-    netF = VGGFeatureExtractor(feature_layer=34, use_bn=False).to(device)
+    # netF = VGGFeatureExtractor(feature_layer=34, use_bn=False).to(device)
 
     if len(config['path_to_G_model']) > 0:
         state = torch.load(config['path_to_G_model'], map_location=torch.device('cpu'))
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     # Handle multi-gpu if desired
     if (device.type == 'cuda') and (config['ngpu'] > 1):
         netG = nn.DataParallel(netG, [2, 3])
-        netF = nn.DataParallel(netF, [2, 3])
+        # netF = nn.DataParallel(netF, [2, 3])
 
     print('# generator parameters:', sum(param.numel() for param in netG.parameters()))
     print('# perceptual parameters:', sum(param.numel() for param in netF.parameters()))
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     # G pixel loss
     cri_pix = nn.L1Loss().to(device)
     # G feature loss
-    cri_fea = nn.L1Loss().to(device)
+    # cri_fea = nn.L1Loss().to(device)
 
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer_G, gamma=0.8)
 
@@ -107,19 +107,19 @@ if __name__ == '__main__':
             l_g_pix = config['loss_pix_weight'] * cri_pix(sr, hr)
             l_g_total += l_g_pix
             # feature loss
-            real_fea = netF(hr).detach()
-            fake_fea = netF(sr)
-            l_g_fea = config['loss_feature_weight'] * cri_fea(fake_fea, real_fea)
-            l_g_total += l_g_fea
+            # real_fea = netF(hr).detach()
+            # fake_fea = netF(sr)
+            # l_g_fea = config['loss_feature_weight'] * cri_fea(fake_fea, real_fea)
+            # l_g_total += l_g_fea
 
             l_g_total.backward()
             optimizer_G.step()
 
             log_dict['l_g_pix'] = l_g_pix.item()
-            log_dict['l_g_fea'] = l_g_fea.item()
+            # log_dict['l_g_fea'] = l_g_fea.item()
 
             writer.add_scalar(tag="l_g_pix", scalar_value=log_dict['l_g_pix'], global_step=global_step)
-            writer.add_scalar(tag="l_g_fea", scalar_value=log_dict['l_g_fea'], global_step=global_step)
+            # writer.add_scalar(tag="l_g_fea", scalar_value=log_dict['l_g_fea'], global_step=global_step)
 
             # validation
             if global_step % config['val_freq'] == config['val_freq'] - 1:
@@ -134,8 +134,8 @@ if __name__ == '__main__':
                 for val_step, (lr, hr) in enumerate(val_bar):
                     lr = lr.to(device)
                     hr = hr.to(device)
-
-                    sr = netG(lr)
+                    with torch.no_grad():
+                        sr = netG(lr)
                     valing_results['mse'] += ((sr - hr) ** 2).data.mean()
                     valing_results['ssims'] += ssim(sr, hr).data.item()
 

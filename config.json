@@ -44,7 +44,7 @@
   },
 
     "PREDICT": {
-    "path_to_model": "../output/models/netG_x4_step=319999.pth",
+    "path_to_model": "../output/models/netG_x4_step=389999.pth",
     "path_to_image_folder": "../images/*.png",
     "path_to_save_images": "../sr_images/"
   }
